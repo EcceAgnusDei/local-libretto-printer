@@ -1,0 +1,22 @@
+llama_server = "~/.lmstudio/extensions/backends/llama.cpp-linux-x86_64-vulkan-avx2-2.67.0/llama-server"
+qwen_gguf = "~/.lmstudio/models/lmstudio-community/Qwen3.5-9B-GGUF/Qwen3.5-9B-Q4_K_M.gguf"
+qwen_mmproj = "~/.lmstudio/models/lmstudio-community/Qwen3.5-9B-GGUF/mmproj-Qwen3.5-9B-BF16.gguf"
+glm_gguf = "~/.lmstudio/models/ggml-org/GLM-OCR-GGUF/GLM-OCR-Q8_0.gguf"
+glm_mmproj = "~/.lmstudio/models/ggml-org/GLM-OCR-GGUF/mmproj-GLM-OCR-Q8_0.gguf"
+
+host = "127.0.0.1"
+port = 8080
+ctx_size = 8192
+threads = 6
+fit_target_mib = 2048
+image_max_tokens = 2048
+
+pages_dir = "partitions/Zais/pages"
+out_dir = "out/Zais"
+title = "Zaïs"
+tail_verses = 40
+
+qwen_temperature = 0.1
+glm_temperature = 0.0
+startup_timeout_s = 180
+request_timeout_s = 300
