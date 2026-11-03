@@ -1,0 +1,242 @@
+:root {
+  color-scheme: light;
+  --paper: #efe6d8;
+  --sheet: #fbf7f0;
+  --ink: #1d1915;
+  --muted: #655c52;
+  --line: #ddd2c2;
+  --accent: #6d2e2a;
+  --accent-dark: #542320;
+  --log: #211d1a;
+  --log-ink: #f3ebdf;
+  --harness: #f0d59a;
+  --marker: #9dcebb;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top, #f7f1e6 0%, var(--paper) 42%);
+  color: var(--ink);
+  font-family: "Liberation Sans", "Nimbus Sans", "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+main {
+  width: min(980px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 32px 0 48px;
+  display: grid;
+  gap: 18px;
+}
+
+h1, h2, legend { font-family: Palatino, "Palatino Linotype", "Liberation Serif", serif; }
+
+h1 {
+  margin: 0;
+  font-size: 2.15rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.lede {
+  max-width: 62ch;
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+form, .journal {
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgb(55 38 22 / 6%);
+}
+
+form { padding: 18px 18px 8px; }
+
+.field, .pages label {
+  display: grid;
+  gap: 6px;
+  font-weight: 650;
+}
+
+select, input[type="number"] {
+  width: 100%;
+  border: 1px solid #cfc3b2;
+  border-radius: 8px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  padding: 8px 10px;
+}
+
+fieldset {
+  margin: 16px 0 0;
+  padding: 12px 14px 14px;
+  border: 1px solid #e6dccf;
+  border-radius: 12px;
+}
+
+legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+
+.pages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 22px;
+}
+
+.pages label {
+  grid-template-columns: auto 6.2rem;
+  align-items: center;
+  font-weight: 500;
+}
+
+#page-count, #status, #error, #journal-path { margin: 8px 0 0; }
+
+#page-count, #journal-path { color: var(--muted); }
+
+.phases { display: grid; gap: 8px; }
+
+.phase {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px 12px;
+  align-items: start;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.phase:has(input:checked) {
+  border-color: var(--accent);
+  background: #f6eee6;
+}
+
+.phase-title, .phase-detail { display: block; }
+
+.phase-title { font-weight: 700; }
+
+.phase-detail { color: var(--muted); font-weight: 400; }
+
+.phase ol {
+  margin: 8px 0 0;
+  padding-left: 1.25rem;
+  font-weight: 400;
+}
+
+.phase li + li { margin-top: 2px; }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.actions #status { margin: 0; }
+
+button {
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fffaf6;
+  font: inherit;
+  font-weight: 700;
+  padding: 10px 18px;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) { background: var(--accent-dark); }
+
+button.stop {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+
+button.stop:hover:not(:disabled) { background: #f6eee6; }
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+#error {
+  min-height: 1.3em;
+  color: #8d1f1c;
+}
+
+.journal {
+  display: grid;
+  grid-template-rows: auto minmax(340px, 58vh);
+  overflow: hidden;
+}
+
+.journal-bar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: baseline;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+#journal-path {
+  margin: 0;
+  font-family: "Liberation Mono", "DejaVu Sans Mono", ui-monospace, monospace;
+  font-size: 0.78rem;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+#log {
+  overflow: auto;
+  background: var(--log);
+  color: var(--log-ink);
+  padding: 14px 16px 20px;
+  font-family: "Liberation Mono", "DejaVu Sans Mono", ui-monospace, monospace;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.log-line {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  min-height: 1.5em;
+}
+
+.log-line.harness { color: var(--harness); }
+.log-line.marker { color: var(--marker); }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+  .journal-bar { flex-direction: column; }
+  #journal-path { text-align: left; }
+}

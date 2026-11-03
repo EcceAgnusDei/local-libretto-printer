@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Extraction du livret</title>
+    <link rel="stylesheet" href="/style.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Libretto printer</p>
+        <h1>Extraction du livret</h1>
+        <p class="lede">Choisissez un intervalle de pages et la phase à atteindre. Le journal de la session s’affiche en dessous, au fur et à mesure.</p>
+      </header>
+      <form id="extract">
+        <label class="field" for="pdf">Partition
+          <select id="pdf" name="pdf" required></select>
+        </label>
+        <fieldset>
+          <legend>Pages à extraire</legend>
+          <div class="pages">
+            <label for="start">De la page
+              <input id="start" name="start" type="number" min="1" step="1" value="1" required>
+            </label>
+            <label for="end">à la page
+              <input id="end" name="end" type="number" min="1" step="1" value="1" required>
+            </label>
+          </div>
+          <p id="page-count"></p>
+        </fieldset>
+        <fieldset>
+          <legend>Aller jusqu’à la phase</legend>
+          <div id="phases" class="phases"></div>
+        </fieldset>
+        <div class="actions">
+          <button id="launch" type="submit" disabled>Lancer l’extraction</button>
+          <button id="stop" class="stop" type="button" disabled>Arrêter</button>
+          <p id="status" role="status"></p>
+        </div>
+        <p id="error" role="alert"></p>
+      </form>
+      <section class="journal" aria-labelledby="journal-title">
+        <div class="journal-bar">
+          <h2 id="journal-title">Journal</h2>
+          <p id="journal-path"></p>
+        </div>
+        <div id="log" tabindex="0"></div>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

@@ -4,54 +4,11 @@ import base64
 import json
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from pathlib import Path
 
 from libretto_printer.config import LOCAL_HOST, Settings
-
-PAGE_SCHEMA: dict[str, object] = {
-    "type": "object",
-    "additionalProperties": False,
-    "required": [
-        "needs_glm",
-        "number_label",
-        "verses",
-        "corrections",
-        "last_system_roles",
-        "uncertain",
-    ],
-    "properties": {
-        "needs_glm": {"type": "boolean"},
-        "number_label": {"type": "string"},
-        "uncertain": {"type": "boolean"},
-        "last_system_roles": {"type": "array", "items": {"type": "string"}},
-        "verses": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": ["role", "text", "used_glm"],
-                "properties": {
-                    "role": {"type": "string"},
-                    "text": {"type": "string"},
-                    "used_glm": {"type": "boolean"},
-                },
-            },
-        },
-        "corrections": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": ["verse_id", "role", "text"],
-                "properties": {
-                    "verse_id": {"type": "string"},
-                    "role": {"type": "string"},
-                    "text": {"type": "string"},
-                },
-            },
-        },
-    },
-}
+from libretto_printer.journal import Journal
 
 
 def image_url(path: Path) -> str:
@@ -63,43 +20,71 @@ def image_url(path: Path) -> str:
     return f"data:{mime};base64,{encoded}"
 
 
-def message_text(payload: dict[str, object]) -> str:
+@dataclass(frozen=True)
+class StreamPiece:
+    done: bool
+    content: str
+    reasoning: str
+
+
+def take_delta(line: str) -> StreamPiece:
+    stripped = line.strip()
+    if not stripped:
+        return StreamPiece(False, "", "")
+    if not stripped.startswith("data:"):
+        raise ValueError("Flux du serveur illisible.")
+    data = stripped[5:].strip()
+    if data == "[DONE]":
+        return StreamPiece(True, "", "")
+    payload = json.loads(data)
+    if not isinstance(payload, dict):
+        raise ValueError("Flux du serveur illisible.")
+    content, reasoning = _delta_parts(payload)
+    return StreamPiece(False, content, reasoning)
+
+
+def _delta_parts(payload: dict[str, object]) -> tuple[str, str]:
     choices = payload.get("choices")
-    if not isinstance(choices, list) or not choices:
-        raise ValueError("Réponse du serveur sans choix.")
-    first = choices[0]
-    if not isinstance(first, dict):
-        raise ValueError("Réponse du serveur illisible.")
-    message = first.get("message")
-    if not isinstance(message, dict):
-        raise ValueError("Réponse du serveur sans message.")
-    content = message.get("content") or ""
-    if isinstance(content, list):
-        parts: list[str] = []
-        for item in content:
-            if isinstance(item, str):
-                parts.append(item)
-            elif isinstance(item, dict) and item.get("type") == "text":
-                text = item.get("text")
-                if isinstance(text, str):
-                    parts.append(text)
-        return "".join(parts)
-    if not isinstance(content, str):
-        raise ValueError("Contenu de réponse illisible.")
-    return content
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+        return "", ""
+    choice = choices[0]
+    delta = choice.get("delta")
+    if isinstance(delta, dict):
+        return _text(delta.get("content")), _text(delta.get("reasoning_content"))
+    message = choice.get("message")
+    if isinstance(message, dict):
+        return _text(message.get("content")), _text(message.get("reasoning_content"))
+    return _text(choice.get("text")), ""
+
+
+def _text(value: object) -> str:
+    return value if isinstance(value, str) else ""
 
 
 class HttpChat:
-    def __init__(self, settings: Settings, alias: str, temperature: float) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        alias: str,
+        temperature: float,
+        journal: Journal | None = None,
+    ) -> None:
         self.settings = settings
         self.alias = alias
         self.temperature = temperature
+        self.journal = journal
 
     def ask(self, image: Path, prompt: str, schema: dict[str, object] | None) -> str:
-        content = [
+        content: object = [
             {"type": "image_url", "image_url": {"url": image_url(image)}},
             {"type": "text", "text": prompt},
         ]
+        return self._send(content, schema)
+
+    def ask_text(self, prompt: str, schema: dict[str, object] | None) -> str:
+        return self._send(prompt, schema)
+
+    def _send(self, content: object, schema: dict[str, object] | None) -> str:
         body: dict[str, object] = {
             "model": self.alias,
             "temperature": self.temperature,
@@ -107,7 +92,8 @@ class HttpChat:
             "top_p": 0.8,
             "presence_penalty": 0,
             "seed": 0,
-            "max_tokens": 2048,
+            "max_tokens": 3072,
+            "stream": True,
             "messages": [{"role": "user", "content": content}],
         }
         if schema is not None:
@@ -126,12 +112,35 @@ class HttpChat:
             headers={"Content-Type": "application/json"},
             method="POST",
         )
+        if self.journal is not None:
+            self.journal.model_begin(self.alias)
         try:
-            with urllib.request.urlopen(request, timeout=self.settings.request_timeout_s) as response:
-                payload = json.loads(response.read().decode("utf-8"))
+            return self._read(request)
+        finally:
+            if self.journal is not None:
+                self.journal.model_end()
+
+    def _read(self, request: urllib.request.Request) -> str:
+        parts: list[str] = []
+        reasoning_started = False
+        try:
+            response = urllib.request.urlopen(request, timeout=self.settings.request_timeout_s)
         except urllib.error.HTTPError as error:
             detail = error.read().decode("utf-8", errors="replace")[:500]
             raise RuntimeError(f"Le serveur a répondu {error.code} : {detail}") from error
-        if not isinstance(payload, dict):
-            raise RuntimeError("Réponse du serveur illisible.")
-        return message_text(payload)
+        with response:
+            for raw in response:
+                line = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else raw
+                piece = take_delta(line)
+                if piece.reasoning and self.journal is not None:
+                    if not reasoning_started:
+                        self.journal.event(f"{self.alias} raisonnement")
+                        reasoning_started = True
+                    self.journal.model(piece.reasoning)
+                if piece.content:
+                    parts.append(piece.content)
+                    if self.journal is not None:
+                        self.journal.model(piece.content)
+                if piece.done:
+                    break
+        return "".join(parts)

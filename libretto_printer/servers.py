@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import time
 import urllib.error
@@ -60,6 +61,8 @@ class LlamaServer:
             str(settings.threads),
             "--image-max-tokens",
             str(settings.image_max_tokens),
+            "--image-min-tokens",
+            str(settings.image_min_tokens),
             "--reasoning",
             self.reasoning,
             "--no-webui",
@@ -68,15 +71,19 @@ class LlamaServer:
     def start(self) -> None:
         if self.process is not None and self.process.poll() is None:
             return
-        self.log_path.parent.mkdir(parents=True, exist_ok=True)
-        log_handle = self.log_path.open("a", encoding="utf-8")
         environment = os.environ.copy()
         backend = str(self.settings.llama_server.parent)
         previous = environment.get("LD_LIBRARY_PATH", "")
         environment["LD_LIBRARY_PATH"] = backend if not previous else f"{backend}:{previous}"
         environment["GGML_VK_VISIBLE_DEVICES"] = "0"
+        command = self.command()
+        stdbuf = shutil.which("stdbuf")
+        if stdbuf is not None:
+            command = [stdbuf, "-oL", "-eL", *command]
+        self.log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_handle = self.log_path.open("a", encoding="utf-8")
         self.process = subprocess.Popen(
-            self.command(),
+            command,
             stdout=log_handle,
             stderr=subprocess.STDOUT,
             env=environment,
@@ -86,7 +93,10 @@ class LlamaServer:
         try:
             self._wait_until_ready()
         except Exception:
+            detail = _server_failure(self.log_path)
             self.stop()
+            if detail:
+                raise RuntimeError(detail) from None
             raise
 
     def stop(self) -> None:
@@ -107,13 +117,30 @@ class LlamaServer:
     def _wait_until_ready(self) -> None:
         deadline = time.monotonic() + self.settings.startup_timeout_s
         url = f"http://{LOCAL_HOST}:{self.settings.port}/health"
+        hint = self.log_path
         while time.monotonic() < deadline:
             if self.process is not None and self.process.poll() is not None:
-                raise RuntimeError(f"Le serveur s'est arrêté. Journal : {self.log_path}")
+                raise RuntimeError(f"Le serveur s'est arrêté. Sortie : {hint}")
             try:
                 with urllib.request.urlopen(url, timeout=2) as response:
                     if response.status == 200:
                         return
             except (urllib.error.URLError, TimeoutError):
                 time.sleep(0.4)
-        raise TimeoutError(f"Le serveur n'a pas répondu. Journal : {self.log_path}")
+        raise TimeoutError(f"Le serveur n'a pas répondu. Sortie : {hint}")
+
+
+def _server_failure(path: Path) -> str:
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return ""
+    for line in reversed(lines[-40:]):
+        if " E " not in line:
+            continue
+        text = line.split(" E ", 1)[1]
+        marker = "start: "
+        if marker in text:
+            text = text.split(marker, 1)[1]
+        return " ".join(text.split())[:240]
+    return ""

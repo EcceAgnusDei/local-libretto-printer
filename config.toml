@@ -10,13 +10,12 @@ ctx_size = 8192
 threads = 6
 fit_target_mib = 2048
 image_max_tokens = 2048
+image_min_tokens = 1024
 
-pages_dir = "partitions/Zais/pages"
-out_dir = "out/Zais"
+out_dir = "out"
 title = "Zaïs"
-tail_verses = 40
 
 qwen_temperature = 0.1
 glm_temperature = 0.0
 startup_timeout_s = 180
-request_timeout_s = 300
+request_timeout_s = 900

@@ -21,10 +21,9 @@ class Settings:
     threads: int
     fit_target_mib: int
     image_max_tokens: int
-    pages_dir: Path
+    image_min_tokens: int
     out_dir: Path
     title: str
-    tail_verses: int
     qwen_temperature: float
     glm_temperature: float
     startup_timeout_s: float
@@ -46,6 +45,10 @@ def load_settings(path: Path) -> Settings:
     host = str(raw.get("host", LOCAL_HOST))
     if host != LOCAL_HOST:
         raise ValueError("Le serveur ne peut écouter que sur 127.0.0.1.")
+    image_max = int(raw.get("image_max_tokens", 2048))
+    image_min = int(raw.get("image_min_tokens", 1024))
+    if image_min < 1 or image_min > image_max:
+        raise ValueError("Le nombre de jetons d'image est invalide.")
     return Settings(
         root=root,
         llama_server=_path(root, str(raw["llama_server"])),
@@ -58,11 +61,10 @@ def load_settings(path: Path) -> Settings:
         ctx_size=int(raw.get("ctx_size", 8192)),
         threads=int(raw.get("threads", 6)),
         fit_target_mib=int(raw.get("fit_target_mib", 2048)),
-        image_max_tokens=int(raw.get("image_max_tokens", 2048)),
-        pages_dir=_path(root, str(raw.get("pages_dir", "partitions/Zais/pages"))),
-        out_dir=_path(root, str(raw.get("out_dir", "out/Zais"))),
+        image_max_tokens=image_max,
+        image_min_tokens=image_min,
+        out_dir=_path(root, str(raw.get("out_dir", "out"))),
         title=str(raw.get("title", "Zaïs")),
-        tail_verses=int(raw.get("tail_verses", 40)),
         qwen_temperature=float(raw.get("qwen_temperature", 0.1)),
         glm_temperature=float(raw.get("glm_temperature", 0.0)),
         startup_timeout_s=float(raw.get("startup_timeout_s", 180)),
@@ -77,6 +79,5 @@ def missing_files(settings: Settings) -> list[Path]:
         settings.qwen_mmproj,
         settings.glm_gguf,
         settings.glm_mmproj,
-        settings.pages_dir,
     )
     return [item for item in required if not item.exists()]
